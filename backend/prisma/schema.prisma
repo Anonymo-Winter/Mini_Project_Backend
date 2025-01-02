@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Citizen {
+  name String
+  id String @id @default(uuid())
+  phone String @unique
+  password String
+  isVerified Boolean @default(false)
+  OTP String? @unique
+  OTPExpiresAt DateTime?
+  latitude String
+  longitude String
+  profileImage String @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
+
+}
+model Authority {
+  name String
+  id String @id @default(uuid())
+  email String @unique
+  password String
+  isVerified Boolean @default(false)
+  resetPasswordToken String?
+  resetPasswordExpiresAt DateTime?
+  verificationToken String?
+  verificationTokenExpiresAt DateTime?
+  latitude String
+  longitude String
+  office String
+  role String
+  profileImage String @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
+
+}
+
+model Issue {
+  id String @id @default(uuid())
+  title String
+  latitude String
+  longitude String
+  description String
+  status status @default(PENDING)
+}
+
+enum status {
+  PENDING
+  RESOLVED
+}
