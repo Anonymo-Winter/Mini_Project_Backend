@@ -129,21 +129,24 @@ export const userSignup = async (req, res) => {
 export const userVerifyToken = async (req, res) => {
     const { code } = req.body;
     const { userId } = req;
+    console.log(userId)
     try {
         if (!code || !userId) {
             return res.status(400).json({ success: false, message: "All fields are required" });
         }
-
+        
         const user = await prisma.citizen.findUnique({
             where: {
                 id: userId,
             },
         });
-
+        
         if (!user) {
             return res.status(400).json({ success: false, message: "User Not Found" });
         }
-
+        
+        console.log(code);
+        console.log(user)
         if (user.OTP !== code && user.OTPExpiresAt < Date.now()) {
             return res.status(400).json({ success: false, message: "Invalid verification code" });
         }

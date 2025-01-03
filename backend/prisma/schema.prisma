@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,46 +8,83 @@ datasource db {
 }
 
 model Citizen {
-  name String
-  id String @id @default(uuid())
-  phone String @unique
-  password String
-  isVerified Boolean @default(false)
-  OTP String? @unique
-  OTPExpiresAt DateTime?
-  latitude String
-  longitude String
-  profileImage String @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
-
+  name            String
+  id              String    @id @default(uuid())
+  phone           String    @unique
+  password        String
+  isVerified      Boolean   @default(false)
+  profileImage    String    @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
+  OTP             String?   @unique
+  OTPExpiresAt    DateTime?
+  latitude        Float
+  longitude       Float
+  upVoted         Issue[]   @relation("upVoted")
+  myList          Issue[]   @relation("myIssue")
+  reputationPoints Int      @default(100) // Tracks user reputation points
 }
-model Authority {
-  name String
-  id String @id @default(uuid())
-  email String @unique
-  password String
-  isVerified Boolean @default(false)
-  resetPasswordToken String?
-  resetPasswordExpiresAt DateTime?
-  verificationToken String?
-  verificationTokenExpiresAt DateTime?
-  latitude String
-  longitude String
-  office String
-  role String
-  profileImage String @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
 
+model Authority {
+  name                       String
+  id                         String    @id @default(uuid())
+  email                      String    @unique
+  password                   String
+  isVerified                 Boolean   @default(false)
+  resetPasswordToken         String?
+  resetPasswordExpiresAt     DateTime?
+  verificationToken          String?
+  verificationTokenExpiresAt DateTime?
+  officeId                     String
+  office                    Office    @relation(fields: [officeId], references: [id],name: "OfficeEmployees")
+  role                       String
+  profileImage               String    @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
+  latitude                   Float
+  longitude                  Float
+  assignedIssues             Issue[]   @relation("AssignedIssues")
+}
+
+model Office {
+  id String @id
+  name       String
+  latitude   Float
+  longitude  Float
+  employees Authority[] @relation("OfficeEmployees")
+  location  String // Store PostGIS geospatial data
+  issues     Issue[] @relation("OfficeIssues")
 }
 
 model Issue {
-  id String @id @default(uuid())
-  title String
-  latitude String
-  longitude String
-  description String
-  status status @default(PENDING)
+  id             String     @id @default(uuid())
+  title          String
+  latitude       String
+  longitude      String
+  description    String
+  image          String?
+  upVotes        Citizen[]  @relation("upVoted")
+  userId         String
+  user           Citizen    @relation(fields: [userId], references: [id], name: "myIssue")
+  assignedToId   String?
+  assignedTo     Authority? @relation("AssignedIssues", fields: [assignedToId], references: [id])
+  officeId       String
+  office         Office     @relation("OfficeIssues", fields: [officeId], references: [id])
+  status         status     @default(PENDING)
+  dispute        Boolean    @default(false)
+  disputeMessage String?
+  createdAt      DateTime   @default(now())
+  isAnonymous   Boolean    @default(false)
+  updates        Update[]  
+}
+
+model Update {
+  id        String   @id @default(uuid())
+  description String 
+  issueId   String   
+  issue     Issue    @relation(fields: [issueId], references: [id])
+  createdAt DateTime @default(now()) 
 }
 
 enum status {
   PENDING
+  IN_PROGRESS
   RESOLVED
+  DISPUTED
 }
