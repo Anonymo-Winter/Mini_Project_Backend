@@ -32,8 +32,7 @@ CREATE TABLE "Authority" (
     "officeId" TEXT NOT NULL,
     "role" TEXT NOT NULL,
     "profileImage" TEXT NOT NULL DEFAULT 'https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg',
-    "latitude" DOUBLE PRECISION NOT NULL,
-    "longitude" DOUBLE PRECISION NOT NULL,
+    "assignedToDate" TIMESTAMP(3),
 
     CONSTRAINT "Authority_pkey" PRIMARY KEY ("id")
 );
@@ -41,10 +40,10 @@ CREATE TABLE "Authority" (
 -- CreateTable
 CREATE TABLE "Office" (
     "id" TEXT NOT NULL,
-    "code" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "latitude" DOUBLE PRECISION NOT NULL,
     "longitude" DOUBLE PRECISION NOT NULL,
+    "location" TEXT NOT NULL,
 
     CONSTRAINT "Office_pkey" PRIMARY KEY ("id")
 );
@@ -65,6 +64,9 @@ CREATE TABLE "Issue" (
     "disputeMessage" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "isAnonymous" BOOLEAN NOT NULL DEFAULT false,
+    "location" TEXT NOT NULL,
+    "address" TEXT NOT NULL,
+    "department" TEXT,
 
     CONSTRAINT "Issue_pkey" PRIMARY KEY ("id")
 );
@@ -95,9 +97,6 @@ CREATE UNIQUE INDEX "Citizen_OTP_key" ON "Citizen"("OTP");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Authority_email_key" ON "Authority"("email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Office_code_key" ON "Office"("code");
 
 -- CreateIndex
 CREATE INDEX "_upVoted_B_index" ON "_upVoted"("B");

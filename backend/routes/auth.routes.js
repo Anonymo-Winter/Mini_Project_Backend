@@ -13,6 +13,7 @@ import {
     verifyUserOtp_ResetPassword,
     userForgetPassword,
     authorityForgetPassword,
+    getUser,
 } from "../controllers/auth.controller.js";
 
 import { verifyToken } from "../middlewares/verifyToken.js";
@@ -38,5 +39,6 @@ authRouter.post("/userResetPassword", ResetUserPassword);
 authRouter.post("/authorityResetPassword", ResetAuthorityPassword);
 
 authRouter.post("/verify-user-otp", verifyUserOtp_ResetPassword);
+authRouter.get('/',verifyToken,getUser)
 
 export default authRouter;

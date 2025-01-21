@@ -8,19 +8,20 @@ datasource db {
 }
 
 model Citizen {
-  name            String
-  id              String    @id @default(uuid())
-  phone           String    @unique
-  password        String
-  isVerified      Boolean   @default(false)
-  profileImage    String    @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
-  OTP             String?   @unique
-  OTPExpiresAt    DateTime?
-  latitude        Float
-  longitude       Float
-  upVoted         Issue[]   @relation("upVoted")
-  myList          Issue[]   @relation("myIssue")
-  reputationPoints Int      @default(100) // Tracks user reputation points
+  name             String
+  id               String    @id @default(uuid())
+  phone            String    @unique
+  password         String
+  isVerified       Boolean   @default(false)
+  profileImage     String    @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
+  OTP              String?   @unique
+  OTPExpiresAt     DateTime?
+  latitude         Float
+  longitude        Float
+  reputationPoints Int       @default(100)
+  myList           Issue[]   @relation("myIssue")
+  upVoted          Issue[]   @relation("upVoted")
+  Notifications    Notification[] @relation("Notification")
 }
 
 model Authority {
@@ -33,23 +34,24 @@ model Authority {
   resetPasswordExpiresAt     DateTime?
   verificationToken          String?
   verificationTokenExpiresAt DateTime?
-  officeId                     String
-  office                    Office    @relation(fields: [officeId], references: [id],name: "OfficeEmployees")
+  officeId                   String
   role                       String
   profileImage               String    @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
-  latitude                   Float
-  longitude                  Float
   assignedIssues             Issue[]   @relation("AssignedIssues")
+  office                      Office    @relation("OfficeEmployees",fields: [officeId], references: [id])
+  departmentName           String
+  department                 Department @relation("DepartmentEmployees",fields: [officeId,departmentName], references: [officeId,name])
 }
 
 model Office {
-  id String @id
-  name       String
-  latitude   Float
-  longitude  Float
+  id        String      @id
+  name      String
+  latitude  Float
+  longitude Float
+  location  String
+  departments Department[] @relation("DepartmentOffice")
+  issues    Issue[]     @relation("OfficeIssues")
   employees Authority[] @relation("OfficeEmployees")
-  location  String // Store PostGIS geospatial data
-  issues     Issue[] @relation("OfficeIssues")
 }
 
 model Issue {
@@ -59,32 +61,77 @@ model Issue {
   longitude      String
   description    String
   image          String?
-  upVotes        Citizen[]  @relation("upVoted")
   userId         String
-  user           Citizen    @relation(fields: [userId], references: [id], name: "myIssue")
   assignedToId   String?
-  assignedTo     Authority? @relation("AssignedIssues", fields: [assignedToId], references: [id])
   officeId       String
-  office         Office     @relation("OfficeIssues", fields: [officeId], references: [id])
   status         status     @default(PENDING)
   dispute        Boolean    @default(false)
   disputeMessage String?
   createdAt      DateTime   @default(now())
-  isAnonymous   Boolean    @default(false)
-  updates        Update[]  
+  isAnonymous    Boolean    @default(false)
+  location       String
+  address        String
+  assignedToDate DateTime?
+  departmentOfficeId String?
+  departmentName     String?
+  forwardedDate DateTime?
+  resolvedDate DateTime?
+  conflictResolvedDate DateTime?
+  department     Department? @relation("DepartmentIssues", fields: [departmentOfficeId, departmentName],references: [officeId, name])
+  assignedTo     Authority? @relation("AssignedIssues", fields: [assignedToId], references: [id])
+  office         Office     @relation("OfficeIssues", fields: [officeId], references: [id])
+  user           Citizen    @relation("myIssue", fields: [userId], references: [id])
+  updates        Update[]
+  upVotes        Citizen[]  @relation("upVoted")
+  Notifications Notification[] @relation("IssueNotification")
+  ResolutionConfirmation Boolean @default(false)
+}
+
+model Department {
+  name      String
+  officeId  String
+  issues    Issue[]     @relation("DepartmentIssues")
+  employees Authority[] @relation("DepartmentEmployees")
+  office    Office      @relation("DepartmentOffice", fields: [officeId], references: [id])
+
+  @@id([officeId, name]) 
 }
 
 model Update {
-  id        String   @id @default(uuid())
-  description String 
-  issueId   String   
-  issue     Issue    @relation(fields: [issueId], references: [id])
-  createdAt DateTime @default(now()) 
+  id          String   @id @default(uuid())
+  description String
+  issueId     String
+  createdAt   DateTime @default(now())
+  issue       Issue    @relation(fields: [issueId], references: [id])
 }
+
+model Notification {
+  id          String   @id @default(uuid())
+  description String
+  userId      String
+  createdAt   DateTime @default(now())
+  user        Citizen  @relation("Notification",fields: [userId], references: [id])
+  issueId     String
+  issue       Issue    @relation("IssueNotification",fields: [issueId], references: [id])
+  title String
+}
+
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
+}
+
 
 enum status {
   PENDING
   IN_PROGRESS
+  FORWARDED
+  UNDER_REVIEW
   RESOLVED
   DISPUTED
 }

@@ -10,10 +10,22 @@ export const createOffice = async (req, res) => {
         .status(400)
         .json({ success: false, error: "All fields are required" });
     }
-    const office = await prisma.$executeRaw`
-    INSERT INTO "Office" (id, name, latitude, longitude, location)
-    VALUES (${id}, ${name}, ${latitude}, ${longitude}, ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326))
-  `;
+
+    // Store coordinates as string and also use PostGIS function to generate point
+    const pointString = await prisma.$queryRaw`
+      SELECT ST_AsText(ST_SetSRID(ST_MakePoint(${Number(longitude)}, ${Number(latitude)}), 4326))
+    `;
+
+    const office = await prisma.office.create({
+      data: {
+        id,
+        name,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        location: pointString[0].st_astext // This will store something like 'POINT(longitude latitude)'
+      }
+    });
+    
     res.status(200).json({ success: true, office });
   } catch (error) {
     console.log("Error in createOffice ", error);
@@ -80,19 +92,3 @@ const findNearestOffice = async (issueLat, issueLon) => {
   };
 };
 
-// Example Usage
-// async () => {
-//   const issueLat = 16.5062; // Example latitude for the issue
-//   const issueLon = 80.648; // Example longitude for the issue
-
-//   try {
-//     const nearestOffice = await findNearestOffice(issueLat, issueLon, prisma);
-//     console.log("Nearest Office:", nearestOffice);
-//     /*
-//         Output Example:
-//         Nearest Office: { officeId: 'office-id', officeName: 'Main Office', distance: 2.3 }
-//       */
-//   } catch (error) {
-//     console.error("Error:", error.message);
-//   }
-// };

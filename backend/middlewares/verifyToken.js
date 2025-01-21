@@ -2,7 +2,6 @@ import jwt from "jsonwebtoken";
 
 export const verifyToken = (req, res, next) => {
     const token = req.cookies.token;
-
     if (!token) {
         return res.status(401).json({
             success: false,
@@ -21,6 +20,7 @@ export const verifyToken = (req, res, next) => {
         }
 
         req.userId = decoded.userId;
+        req.type = decoded.type;
         next();
     } catch (error) {
         console.error("Error verifying token:", error.message);

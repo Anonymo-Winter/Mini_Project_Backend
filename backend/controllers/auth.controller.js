@@ -27,14 +27,14 @@ export const userLogin = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid credentials" });
         }
 
-        generateTokenAndCookies(res, user.id);
+        generateTokenAndCookies(res, user.id, "citizen");
 
         user.password = undefined;
 
         res.status(200).json({
             success: true,
             message: "Logged in successfully",
-            user,
+            user : {...user,type : 'citizen'},
         });
     } catch (error) {
         console.log("Error in login ", error);
@@ -62,14 +62,14 @@ export const authorityLogin = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid credentials" });
         }
 
-        generateTokenAndCookies(res, user.id);
+        generateTokenAndCookies(res, user.id, user.role);
 
         user.password = undefined;
 
         res.status(200).json({
             success: true,
             message: "Logged in successfully",
-            user,
+            user : {...user,type : user.role},
         });
     } catch (error) {
         console.log("Error in login ", error);
@@ -115,7 +115,7 @@ export const userSignup = async (req, res) => {
 
         await sendOtp("+91" + phone, verificationToken);
 
-        generateTokenAndCookies(res, user.id);
+        generateTokenAndCookies(res, user.id, 'citizen');
 
         user.password = undefined;
         res.status(201).json({ success: true, user });
@@ -218,9 +218,9 @@ export const authorityVerifyToken = async (req, res) => {
 
 // required name, email, password, latitude, longitude, office, role from frontend
 export const authoritySignup = async (req, res) => {
-    const { name, email, password, latitude, longitude, office, role } = req.body;
+    const { name, email, password,office, authority,department } = req.body;
     try {
-        if (!name || !email || !password || !latitude || !longitude) {
+        if (!name || !email || !password || !authority || !office) {
             return res.status(400).json({ success: false, error: "All fields are required" });
         }
         const userExists = await prisma.authority.findUnique({
@@ -231,6 +231,24 @@ export const authoritySignup = async (req, res) => {
         if (userExists) {
             return res.status(400).json({ success: false, error: "User Already Exists" });
         }
+
+        const departmentExists = await prisma.department.findUnique({
+            where: {
+                officeId_name: {
+                    officeId: office,
+                    name: department,
+                }
+            },
+        });
+        let newDepartment;
+        if (!departmentExists) {
+            newDepartment = await prisma.department.create({
+                data: {
+                    officeId: office,
+                    name: department,
+                },
+            });
+        }
         const hashPassword = await bcryptjs.hash(password, 10);
         const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
         const user = await prisma.authority.create({
@@ -239,11 +257,10 @@ export const authoritySignup = async (req, res) => {
                 email,
                 password: hashPassword,
                 verificationToken,
-                latitude,
-                longitude,
-                office,
-                role,
+                officeId : office,
+                role : authority,
                 isVerified: false,
+                departmentName: department,
             },
         });
 
@@ -253,7 +270,7 @@ export const authoritySignup = async (req, res) => {
 
         await sendOTP_Email(email, verificationToken);
 
-        generateTokenAndCookies(res, user.id);
+        generateTokenAndCookies(res, user.id, authority);
 
         user.password = undefined;
         res.status(201).json({ success: true, user });
@@ -551,3 +568,82 @@ export const verifyUserOtp_ResetPassword = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error", flag: 0 });
     }
 };
+
+export const getUser = async (req, res) => {
+    const userId =  req.userId;
+    const type = req.type;
+    try {
+
+        if(type === "citizen"){
+            const user = await prisma.citizen.findUnique({
+                where: {
+                    id: userId,
+                },
+                include:{
+                    Notifications : true,
+                    upVoted : {
+                        select : {
+                            id : true,
+                        }
+                    }
+                }
+            });
+            if (!user) {
+                return res.status(400).json({ success: false, message: "User not found" });
+            }
+            return res.status(200).json({
+                success: true,
+                user: { ...user, type },
+            });
+        }else{
+            const user = await prisma.authority.findUnique({
+                where: {
+                    id: userId,
+                },
+                include:{
+                    office : true
+                }
+            });
+            if (!user) {
+                return res.status(400).json({ success: false, message: "User not found" });
+            }
+            return res.status(200).json({
+                success: true,
+                user: { ...user, type },
+            });
+        }
+       
+    } catch (error) {
+        console.log("Error occured while getting user ", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
+export const myList = async (req,res) => {
+    const userId =  req.userId;
+    const type = req.type;
+    try {
+
+        if(type !== "citizen"){
+            return res.status(400).json({ success: false, message: "You are not authorized to view this page" });
+        }
+        const user = await prisma.citizen.findUnique({
+            where: {
+                id: userId,
+            },
+            include:{
+                myList : true,
+                upVoted : true
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            user: { ...user, type },
+        });
+       
+    } catch (error) {
+        console.log("Error occured while getting user ", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+}
