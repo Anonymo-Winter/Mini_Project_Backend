@@ -85,6 +85,7 @@ model Issue {
   upVotes        Citizen[]  @relation("upVoted")
   Notifications Notification[] @relation("IssueNotification")
   ResolutionConfirmation Boolean @default(false)
+  audio String?
 }
 
 model Department {

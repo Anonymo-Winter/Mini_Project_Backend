@@ -2,6 +2,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import prisma from "../prisma/index.js";
 import PDFDocument from "pdfkit";
 import path from "path";
+import uploadOnCloudinary from "../utils/cloudinary.js";
 
 
 const departments = [
@@ -36,9 +37,16 @@ const findNearestOffice = async (prisma, latitude, longitude) => {
 
 // Create Issue controller
 export const createIssue = async (req, res) => {
+
   const { title, description, latitude, longitude, isAnonymous, address } =
     req.body;
+
+  const anonymous = isAnonymous === "true";
   const userId = req.userId;
+  const image = req.files.image;
+  const audioFile = req.files.audio;
+  
+  
 
   try {
     // Input validation
@@ -76,7 +84,10 @@ export const createIssue = async (req, res) => {
       });
     }
 
-    // Create the issue using raw query with geometry cast to text
+    const imageURL = await uploadOnCloudinary(image.tempFilePath,"issues");
+    const audioURL = await uploadOnCloudinary(audioFile.tempFilePath,"issues");
+
+    //Create the issue using raw query with geometry cast to text
     const [issue] = await prisma.$queryRaw`
     WITH new_issue AS (
         INSERT INTO "Issue" (
@@ -92,7 +103,9 @@ export const createIssue = async (req, res) => {
             "dispute",
             "isAnonymous",
             "createdAt",
-            "address"
+            "address",
+            "image",
+            "audio"
         ) VALUES (
             gen_random_uuid(),
             ${title},
@@ -104,9 +117,11 @@ export const createIssue = async (req, res) => {
             ST_AsText(ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)),
             'UNDER_REVIEW',
             false,
-            ${isAnonymous},
+            ${anonymous},
             NOW(),
-            ${address}
+            ${address},
+            ${imageURL ? imageURL : null},
+            ${audioFile ? audioURL : null}
 
         )
         RETURNING 
@@ -138,7 +153,7 @@ export const createIssue = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      issue: createdIssue,
+      issue: "success"
     });
   } catch (error) {
     console.error("Error in createIssue:", error);
@@ -149,6 +164,7 @@ export const createIssue = async (req, res) => {
         process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
+
 };
 
 // Function to get nearby issues within 500m radius
@@ -312,9 +328,15 @@ export const getNearbyIssues = async (req, res) => {
   }
 };
 
+let issuesId = {};
+
 export const getIssueById = async (req, res) => {
+  
   const issueId = req.params.id;
   try {
+    if (issuesId[issueId]) {
+      return res.status(200).json({ success: true, issue: issuesId[issueId] });
+    }
     const issue = await prisma.issue.findUnique({
       where: { id: issueId },
       include: {
@@ -329,7 +351,8 @@ export const getIssueById = async (req, res) => {
       return res.status(404).json({ success: false, error: "Issue not found" });
     }
     const voted = issue.upVotes.some((vote) => vote.id === req.userId);
-    res.status(200).json({ success: true, issue : {...issue,voted} });
+    issuesId[issueId] = issue;
+    res.status(200).json({ success: true, issue : {...issue, voted} });
     
     
   } catch (e) {
@@ -687,6 +710,7 @@ export const getForwardedIssues = async (req, res) => {
 
 export const updateIssue = async (req, res) => {
   const { issueId, description, status } = req.body;
+  console.log("updateIssue", req.body);
   try {
     const update = await prisma.update.create({
       data: {
@@ -1225,6 +1249,7 @@ const statuses = [
 ];
 
 export const getAnalytics = async (req, res) => {
+  console.log("Analytics");
   const userId = req.userId;
   let fromDate = req.query.fromDate;
   let toDate = req.query.toDate;
@@ -1276,6 +1301,8 @@ export const getAnalytics = async (req, res) => {
       });
     }
 
+    
+
     const Issues = await prisma.issue.findMany({
       where: {
         officeId: user.office.id,
@@ -1309,6 +1336,7 @@ export const getAnalytics = async (req, res) => {
         
       },
     });
+
 
     res.status(200).json({ success: true, analytics, byStatus, Issues });
   } catch (e) {
