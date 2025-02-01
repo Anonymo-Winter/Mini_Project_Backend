@@ -34,7 +34,7 @@ export const userLogin = async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Logged in successfully",
-            user : {...user,type : 'citizen'},
+            user: { ...user, type: "citizen" },
         });
     } catch (error) {
         console.log("Error in login ", error);
@@ -69,7 +69,7 @@ export const authorityLogin = async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Logged in successfully",
-            user : {...user,type : user.role},
+            user: { ...user, type: user.role },
         });
     } catch (error) {
         console.log("Error in login ", error);
@@ -115,7 +115,7 @@ export const userSignup = async (req, res) => {
 
         await sendOtp("+91" + phone, verificationToken);
 
-        generateTokenAndCookies(res, user.id, 'citizen');
+        generateTokenAndCookies(res, user.id, "citizen");
 
         user.password = undefined;
         res.status(201).json({ success: true, user });
@@ -129,24 +129,24 @@ export const userSignup = async (req, res) => {
 export const userVerifyToken = async (req, res) => {
     const { code } = req.body;
     const { userId } = req;
-    console.log(userId)
+    console.log(userId);
     try {
         if (!code || !userId) {
             return res.status(400).json({ success: false, message: "All fields are required" });
         }
-        
+
         const user = await prisma.citizen.findUnique({
             where: {
                 id: userId,
             },
         });
-        
+
         if (!user) {
             return res.status(400).json({ success: false, message: "User Not Found" });
         }
-        
+
         console.log(code);
-        console.log(user)
+        console.log(user);
         if (user.OTP !== code && user.OTPExpiresAt < Date.now()) {
             return res.status(400).json({ success: false, message: "Invalid verification code" });
         }
@@ -218,7 +218,7 @@ export const authorityVerifyToken = async (req, res) => {
 
 // required name, email, password, latitude, longitude, office, role from frontend
 export const authoritySignup = async (req, res) => {
-    const { name, email, password,office, authority,department } = req.body;
+    const { name, email, password, office, authority, department } = req.body;
     try {
         if (!name || !email || !password || !authority || !office) {
             return res.status(400).json({ success: false, error: "All fields are required" });
@@ -237,7 +237,7 @@ export const authoritySignup = async (req, res) => {
                 officeId_name: {
                     officeId: office,
                     name: department,
-                }
+                },
             },
         });
         let newDepartment;
@@ -257,8 +257,8 @@ export const authoritySignup = async (req, res) => {
                 email,
                 password: hashPassword,
                 verificationToken,
-                officeId : office,
-                role : authority,
+                officeId: office,
+                role: authority,
                 isVerified: false,
                 departmentName: department,
             },
@@ -570,23 +570,22 @@ export const verifyUserOtp_ResetPassword = async (req, res) => {
 };
 
 export const getUser = async (req, res) => {
-    const userId =  req.userId;
+    const userId = req.userId;
     const type = req.type;
     try {
-
-        if(type === "citizen"){
+        if (type === "citizen") {
             const user = await prisma.citizen.findUnique({
                 where: {
                     id: userId,
                 },
-                include:{
-                    Notifications : true,
-                    upVoted : {
-                        select : {
-                            id : true,
-                        }
-                    }
-                }
+                include: {
+                    Notifications: true,
+                    upVoted: {
+                        select: {
+                            id: true,
+                        },
+                    },
+                },
             });
             if (!user) {
                 return res.status(400).json({ success: false, message: "User not found" });
@@ -595,14 +594,14 @@ export const getUser = async (req, res) => {
                 success: true,
                 user: { ...user, type },
             });
-        }else{
+        } else {
             const user = await prisma.authority.findUnique({
                 where: {
                     id: userId,
                 },
-                include:{
-                    office : true
-                }
+                include: {
+                    office: true,
+                },
             });
             if (!user) {
                 return res.status(400).json({ success: false, message: "User not found" });
@@ -612,38 +611,151 @@ export const getUser = async (req, res) => {
                 user: { ...user, type },
             });
         }
-       
     } catch (error) {
         console.log("Error occured while getting user ", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
 };
 
-export const myList = async (req,res) => {
-    const userId =  req.userId;
+export const myList = async (req, res) => {
+    const userId = req.userId;
     const type = req.type;
     try {
-
-        if(type !== "citizen"){
+        if (type !== "citizen") {
             return res.status(400).json({ success: false, message: "You are not authorized to view this page" });
         }
         const user = await prisma.citizen.findUnique({
             where: {
                 id: userId,
             },
-            include:{
-                myList : true,
-                upVoted : true
-            }
+            include: {
+                myList: true,
+                upVoted: true,
+            },
         });
 
         res.status(200).json({
             success: true,
             user: { ...user, type },
         });
-       
     } catch (error) {
         console.log("Error occured while getting user ", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
-}
+};
+
+export const editAuthProfile = async (req, res) => {
+    const { name, email, profileImage, id } = req.body;
+
+    try {
+        if (!name || !email) {
+            return res.status(400).json({ success: false, error: "All fields are required" });
+        }
+
+        const user = await prisma.authority.findUnique({
+            where: {
+                id,
+            },
+        });
+
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User not found" });
+        }
+
+        // Check if the email is being changed
+        if (user.email !== email) {
+            // Check if the new email is already in use
+            const userWithThisEmail = await prisma.authority.findUnique({
+                where: {
+                    email,
+                },
+            });
+
+            if (userWithThisEmail) {
+                return res.status(400).json({ success: false, error: "Email is already in use" });
+            }
+
+            // Generate and send OTP
+            const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+
+            await prisma.authority.update({
+                where: {
+                    id,
+                },
+                data: {
+                    verificationToken: verificationToken,
+                    verificationTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000), // OTP expires in 1 hour
+                },
+            });
+
+            await sendOTP_Email(email, verificationToken);
+
+            return res.status(200).json({
+                success: true,
+                message: "OTP sent to the new email address",
+                requiresOtp: true, // Indicate that OTP verification is required
+            });
+        }
+
+        // If email is not being changed, update profile directly
+        const updatedUser = await prisma.authority.update({
+            where: {
+                id,
+            },
+            data: {
+                name,
+                email,
+                profileImage,
+            },
+        });
+
+        res.status(200).json({ success: true, user: updatedUser });
+    } catch (error) {
+        console.log("Error in updating authority ", error);
+        res.status(400).json({ success: false, error: error.message });
+    }
+};
+
+export const verifyOtpForEmailUpdate = async (req, res) => {
+    const { name, email, profileImage, id, otp } = req.body;
+
+    try {
+        if (!name || !email || !otp) {
+            return res.status(400).json({ success: false, error: "All fields are required" });
+        }
+
+        const user = await prisma.authority.findUnique({
+            where: {
+                id,
+            },
+        });
+
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User not found" });
+        }
+
+        // Verify OTP
+        if (otp !== user.verificationToken || new Date() > new Date(user.verificationTokenExpiresAt)) {
+            return res.status(400).json({ success: false, error: "Invalid or expired OTP" });
+        }
+
+        // Update the user's profile
+        const updatedUser = await prisma.authority.update({
+            where: {
+                id,
+            },
+            data: {
+                name,
+                email,
+                profileImage,
+                verificationToken: null,
+                verificationTokenExpiresAt: null,
+            },
+        });
+
+        res.status(200).json({ success: true, user: updatedUser });
+    } catch (error) {
+        console.log("Error in verifying OTP for email update ", error);
+        res.status(400).json({ success: false, error: error.message });
+    }
+};
