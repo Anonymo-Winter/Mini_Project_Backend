@@ -14,6 +14,8 @@ const departments = [
     "engineering",
 ];
 
+import uploadOnCloudinary from "../utils/cloudinary.js";
+
 // Function to find the nearest office
 const findNearestOffice = async (prisma, latitude, longitude) => {
     const [nearestOffice] = await prisma.$queryRaw`
@@ -35,8 +37,9 @@ const findNearestOffice = async (prisma, latitude, longitude) => {
 
 // Create Issue controller
 export const createIssue = async (req, res) => {
-    console.log(req.body);
     const { title, description, latitude, longitude, isAnonymous, address } = req.body;
+    const image = req.files.image;
+    const audio = req.files.audio;
     const userId = req.userId;
     const anonymous = isAnonymous == "true" ? true : false;
 
@@ -48,6 +51,45 @@ export const createIssue = async (req, res) => {
                 error: "All fields are required",
             });
         }
+
+        if (image) {
+            if (!image.mimetype.startsWith("image/")) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Image must be an image",
+                });
+            }
+        }
+
+        if (audio) {
+            if (!audio.mimetype.startsWith("audio/")) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Audio must be an audio",
+                });
+            }
+        }
+
+        if (image) {
+            if (image.size > 1024 * 1024 * 10) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Image size should be less than 10MB",
+                });
+            }
+        }
+
+        if (audio) {
+            if (audio.size > 1024 * 1024 * 10) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Audio size should be less than 10MB",
+                });
+            }
+        }
+
+        const imageUrl = await uploadOnCloudinary(image.tempFilePath, "issues");
+        const audioUrl = await uploadOnCloudinary(audio, "issues");
 
         // Validate coordinates
         const lat = parseFloat(latitude);
