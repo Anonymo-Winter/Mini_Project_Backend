@@ -35,10 +35,12 @@ const findNearestOffice = async (prisma, latitude, longitude) => {
 
 // Create Issue controller
 export const createIssue = async (req, res) => {
-    console.log(req.body);
+
+    
     const { title, description, latitude, longitude, isAnonymous, address } = req.body;
     const userId = req.userId;
     const anonymous = isAnonymous == "true" ? true : false;
+
 
     try {
         // Input validation
