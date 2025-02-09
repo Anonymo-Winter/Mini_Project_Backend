@@ -127,7 +127,9 @@ export const createIssue = async (req, res) => {
             "dispute",
             "isAnonymous",
             "createdAt",
-            "address"
+            "address",
+            "audio",
+            "image"
         ) VALUES (
             gen_random_uuid(),
             ${title},
@@ -141,7 +143,9 @@ export const createIssue = async (req, res) => {
             false,
             ${anonymous},
             NOW(),
-            ${address}
+            ${address},
+            ${audioUrl},
+            ${imageUrl}
 
         )
         RETURNING 
@@ -157,7 +161,9 @@ export const createIssue = async (req, res) => {
             "dispute",
             "isAnonymous",
             "createdAt",
-            "address"
+            "address",
+            "audio",
+            "image"
     )
     SELECT * FROM new_issue;
 `;
