@@ -14,6 +14,9 @@ const departments = [
     "engineering",
 ];
 
+<<<<<<< HEAD
+import uploadOnCloudinary from "../utils/cloudinary.js";
+=======
 async function sendNotification(phone, body) {
     const connection = await amqp.connect(process.env.RABBITMQ_URL);
     const channel = await connection.createChannel();
@@ -29,6 +32,7 @@ async function sendNotification(phone, body) {
     channel.publish("notification-exchange", "notification-routing-key", Buffer.from(JSON.stringify(notification)));
 
 }
+>>>>>>> 8e4168bf1718afa3164935c17f6dc99888481615
 
 // Function to find the nearest office
 const findNearestOffice = async (prisma, latitude, longitude) => {
@@ -51,12 +55,16 @@ const findNearestOffice = async (prisma, latitude, longitude) => {
 
 // Create Issue controller
 export const createIssue = async (req, res) => {
+<<<<<<< HEAD
+=======
 
     console.log("Request body:", req);
+>>>>>>> 8e4168bf1718afa3164935c17f6dc99888481615
     const { title, description, latitude, longitude, isAnonymous, address } = req.body;
+    const image = req.files.image;
+    const audio = req.files.audio;
     const userId = req.userId;
     const anonymous = isAnonymous == "true" ? true : false;
-
 
     try {
         // Input validation
@@ -66,6 +74,45 @@ export const createIssue = async (req, res) => {
                 error: "All fields are required",
             });
         }
+
+        if (image) {
+            if (!image.mimetype.startsWith("image/")) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Image must be an image",
+                });
+            }
+        }
+
+        if (audio) {
+            if (!audio.mimetype.startsWith("audio/")) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Audio must be an audio",
+                });
+            }
+        }
+
+        if (image) {
+            if (image.size > 1024 * 1024 * 10) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Image size should be less than 10MB",
+                });
+            }
+        }
+
+        if (audio) {
+            if (audio.size > 1024 * 1024 * 10) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Audio size should be less than 10MB",
+                });
+            }
+        }
+
+        const imageUrl = await uploadOnCloudinary(image.tempFilePath, "issues");
+        const audioUrl = await uploadOnCloudinary(audio, "issues");
 
         // Validate coordinates
         const lat = parseFloat(latitude);
@@ -103,7 +150,9 @@ export const createIssue = async (req, res) => {
             "dispute",
             "isAnonymous",
             "createdAt",
-            "address"
+            "address",
+            "audio",
+            "image"
         ) VALUES (
             gen_random_uuid(),
             ${title},
@@ -117,7 +166,9 @@ export const createIssue = async (req, res) => {
             false,
             ${anonymous},
             NOW(),
-            ${address}
+            ${address},
+            ${audioUrl},
+            ${imageUrl}
 
         )
         RETURNING 
@@ -133,7 +184,9 @@ export const createIssue = async (req, res) => {
             "dispute",
             "isAnonymous",
             "createdAt",
-            "address"
+            "address",
+            "audio",
+            "image"
     )
     SELECT * FROM new_issue;
 `;

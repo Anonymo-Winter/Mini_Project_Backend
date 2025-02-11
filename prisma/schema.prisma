@@ -55,6 +55,39 @@ model Office {
 }
 
 model Issue {
+<<<<<<< HEAD
+  id             String     @id @default(uuid())
+  title          String
+  latitude       String
+  longitude      String
+  description    String
+  image          String?
+  userId         String
+  assignedToId   String?
+  officeId       String
+  status         status     @default(PENDING)
+  dispute        Boolean    @default(false)
+  disputeMessage String?
+  createdAt      DateTime   @default(now())
+  isAnonymous    Boolean    @default(false)
+  location       String
+  address        String
+  assignedToDate DateTime?
+  departmentOfficeId String?
+  departmentName     String?
+  forwardedDate DateTime?
+  resolvedDate DateTime?
+  conflictResolvedDate DateTime?
+  department     Department? @relation("DepartmentIssues", fields: [departmentOfficeId, departmentName],references: [officeId, name])
+  assignedTo     Authority? @relation("AssignedIssues", fields: [assignedToId], references: [id])
+  office         Office     @relation("OfficeIssues", fields: [officeId], references: [id])
+  user           Citizen    @relation("myIssue", fields: [userId], references: [id])
+  updates        Update[]
+  upVotes        Citizen[]  @relation("upVoted")
+  Notifications Notification[] @relation("IssueNotification")
+  ResolutionConfirmation Boolean @default(false)
+  audio String?
+=======
   id                     String         @id @default(uuid())
   title                  String
   latitude               String
@@ -86,6 +119,7 @@ model Issue {
   Notifications          Notification[] @relation("IssueNotification")
   updates                Update[]
   upVotes                Citizen[]      @relation("upVoted")
+>>>>>>> 8e4168bf1718afa3164935c17f6dc99888481615
 }
 
 model Department {
