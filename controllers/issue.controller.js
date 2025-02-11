@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import prisma from "../prisma/index.js";
 import PDFDocument from "pdfkit";
-import path from "path";
+import amqp from "amqplib";
 
 const departments = [
     "administration",
@@ -13,6 +13,22 @@ const departments = [
     "environment",
     "engineering",
 ];
+
+async function sendNotification(phone, body) {
+    const connection = await amqp.connect(process.env.RABBITMQ_URL);
+    const channel = await connection.createChannel();
+    await channel.assertExchange("notification-exchange", "direct", {
+        durable: true,
+    });
+    await channel.assertQueue("notification-queue");
+    channel.bindQueue("notification-queue", "notification-exchange", "notification-routing-key");
+    const notification = {
+        phone,
+        body
+    };
+    channel.publish("notification-exchange", "notification-routing-key", Buffer.from(JSON.stringify(notification)));
+
+}
 
 // Function to find the nearest office
 const findNearestOffice = async (prisma, latitude, longitude) => {
@@ -36,7 +52,7 @@ const findNearestOffice = async (prisma, latitude, longitude) => {
 // Create Issue controller
 export const createIssue = async (req, res) => {
 
-    
+    console.log("Request body:", req);
     const { title, description, latitude, longitude, isAnonymous, address } = req.body;
     const userId = req.userId;
     const anonymous = isAnonymous == "true" ? true : false;
@@ -647,6 +663,11 @@ export const getForwardedIssues = async (req, res) => {
     }
 };
 
+
+//Issue Updation
+
+
+
 export const updateIssue = async (req, res) => {
     const { issueId, description, status } = req.body;
     try {
@@ -708,6 +729,17 @@ export const updateIssue = async (req, res) => {
                 }),
             },
         });
+
+        const user = await prisma.citizen.findUnique({
+            where: {
+                id: issue.userId,
+            },
+        });
+
+        sendNotification(
+            user.phone,
+            `Issue with title ${issue.title} at ${issue.address} raised on ${issue.createdAt} has been ${status} successfully`
+        );
 
         res.status(200).json({ success: true, newIssue });
     } catch (e) {
@@ -1157,7 +1189,6 @@ export const getAnalytics = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 error: "You are not authorized to view this office",
-                isAdmin,
             });
         }
         const analytics = [];
