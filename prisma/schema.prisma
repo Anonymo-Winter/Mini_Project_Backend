@@ -9,52 +9,53 @@ datasource db {
 
 model Citizen {
   name             String
-  id               String    @id @default(uuid())
-  phone            String    @unique
+  id               String         @id @default(uuid())
+  phone            String         @unique
   password         String
-  isVerified       Boolean   @default(false)
-  profileImage     String    @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
-  OTP              String?   @unique
+  isVerified       Boolean        @default(false)
+  profileImage     String         @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
+  OTP              String?        @unique
   OTPExpiresAt     DateTime?
   latitude         Float
   longitude        Float
-  reputationPoints Int       @default(100)
-  myList           Issue[]   @relation("myIssue")
-  upVoted          Issue[]   @relation("upVoted")
+  reputationPoints Int            @default(100)
+  myList           Issue[]        @relation("myIssue")
   Notifications    Notification[] @relation("Notification")
+  upVoted          Issue[]        @relation("upVoted")
 }
 
 model Authority {
   name                       String
-  id                         String    @id @default(uuid())
-  email                      String    @unique
+  id                         String     @id @default(uuid())
+  email                      String     @unique
   password                   String
-  isVerified                 Boolean   @default(false)
+  isVerified                 Boolean    @default(false)
   resetPasswordToken         String?
   resetPasswordExpiresAt     DateTime?
   verificationToken          String?
   verificationTokenExpiresAt DateTime?
   officeId                   String
   role                       String
-  profileImage               String    @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
-  assignedIssues             Issue[]   @relation("AssignedIssues")
-  office                      Office    @relation("OfficeEmployees",fields: [officeId], references: [id])
-  departmentName           String
-  department                 Department @relation("DepartmentEmployees",fields: [officeId,departmentName], references: [officeId,name])
+  profileImage               String     @default("https://static.vecteezy.com/system/resources/previews/000/574/512/original/vector-sign-of-user-icon.jpg")
+  departmentName             String
+  department                 Department @relation("DepartmentEmployees", fields: [officeId, departmentName], references: [officeId, name])
+  office                     Office     @relation("OfficeEmployees", fields: [officeId], references: [id])
+  assignedIssues             Issue[]    @relation("AssignedIssues")
 }
 
 model Office {
-  id        String      @id
-  name      String
-  latitude  Float
-  longitude Float
-  location  String
+  id          String       @id
+  name        String
+  latitude    Float
+  longitude   Float
+  location    String
+  employees   Authority[]  @relation("OfficeEmployees")
   departments Department[] @relation("DepartmentOffice")
-  issues    Issue[]     @relation("OfficeIssues")
-  employees Authority[] @relation("OfficeEmployees")
+  issues      Issue[]      @relation("OfficeIssues")
 }
 
 model Issue {
+<<<<<<< HEAD
   id             String     @id @default(uuid())
   title          String
   latitude       String
@@ -86,16 +87,49 @@ model Issue {
   Notifications Notification[] @relation("IssueNotification")
   ResolutionConfirmation Boolean @default(false)
   audio String?
+=======
+  id                     String         @id @default(uuid())
+  title                  String
+  latitude               String
+  longitude              String
+  description            String
+  image                  String?
+  userId                 String
+  assignedToId           String?
+  officeId               String
+  status                 status         @default(PENDING)
+  dispute                Boolean        @default(false)
+  disputeMessage         String?
+  createdAt              DateTime       @default(now())
+  isAnonymous            Boolean        @default(false)
+  location               String
+  address                String
+  departmentName         String?
+  departmentOfficeId     String?
+  assignedToDate         DateTime?
+  forwardedDate          DateTime?
+  ResolutionConfirmation Boolean        @default(false)
+  conflictResolvedDate   DateTime?
+  resolvedDate           DateTime?
+  audio                  String?
+  assignedTo             Authority?     @relation("AssignedIssues", fields: [assignedToId], references: [id])
+  department             Department?    @relation("DepartmentIssues", fields: [departmentOfficeId, departmentName], references: [officeId, name])
+  office                 Office         @relation("OfficeIssues", fields: [officeId], references: [id])
+  user                   Citizen        @relation("myIssue", fields: [userId], references: [id])
+  Notifications          Notification[] @relation("IssueNotification")
+  updates                Update[]
+  upVotes                Citizen[]      @relation("upVoted")
+>>>>>>> 8e4168bf1718afa3164935c17f6dc99888481615
 }
 
 model Department {
   name      String
   officeId  String
-  issues    Issue[]     @relation("DepartmentIssues")
   employees Authority[] @relation("DepartmentEmployees")
   office    Office      @relation("DepartmentOffice", fields: [officeId], references: [id])
+  issues    Issue[]     @relation("DepartmentIssues")
 
-  @@id([officeId, name]) 
+  @@id([officeId, name])
 }
 
 model Update {
@@ -111,12 +145,11 @@ model Notification {
   description String
   userId      String
   createdAt   DateTime @default(now())
-  user        Citizen  @relation("Notification",fields: [userId], references: [id])
   issueId     String
-  issue       Issue    @relation("IssueNotification",fields: [issueId], references: [id])
-  title String
+  title       String
+  issue       Issue    @relation("IssueNotification", fields: [issueId], references: [id])
+  user        Citizen  @relation("Notification", fields: [userId], references: [id])
 }
-
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model spatial_ref_sys {
@@ -127,12 +160,11 @@ model spatial_ref_sys {
   proj4text String? @db.VarChar(2048)
 }
 
-
 enum status {
   PENDING
   IN_PROGRESS
-  FORWARDED
-  UNDER_REVIEW
   RESOLVED
   DISPUTED
+  FORWARDED
+  UNDER_REVIEW
 }
