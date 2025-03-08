@@ -9,9 +9,14 @@ cloudinary.config({
 const uploadOnCloudinary = async (file, foldername) => {
     try {
         if (!file) {
-            throw Error("file is required!");
+            throw new Error("File is required!");
         }
-        const response = await cloudinary.uploader.upload(file, { resource_type: "auto" }, { folder: foldername });
+
+        const response = await cloudinary.uploader.upload(file, {
+            resource_type: "auto",
+            folder: foldername,
+        });
+
         return response.secure_url;
     } catch (error) {
         console.log(error);

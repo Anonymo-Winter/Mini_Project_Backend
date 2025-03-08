@@ -19,7 +19,7 @@ issueRouter.get('/conflict',verifyToken,getConflictIssues)
 issueRouter.get('/analytics',verifyToken,getAnalytics)
 issueRouter.put('/upvote',verifyToken,upVote)
 issueRouter.put('/unupvote',verifyToken,unupVote)
-issueRouter.get('/reports/download',monthlyReport)
+issueRouter.get('/reports/download',verifyToken,monthlyReport)
 issueRouter.get('/:id',verifyToken,getIssueById)
 
 

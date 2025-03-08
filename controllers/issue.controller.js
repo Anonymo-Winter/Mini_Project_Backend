@@ -2,6 +2,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import prisma from "../prisma/index.js";
 import PDFDocument from "pdfkit";
 import amqp from "amqplib";
+import uploadOnCloudinary from "../utils/cloudinary.js";
 
 const departments = [
     "administration",
@@ -51,115 +52,160 @@ const findNearestOffice = async (prisma, latitude, longitude) => {
 
 // Create Issue controller
 export const createIssue = async (req, res) => {
-
-    console.log("Request body:", req);
-    const { title, description, latitude, longitude, isAnonymous, address } = req.body;
-    const userId = req.userId;
-    const anonymous = isAnonymous == "true" ? true : false;
-
-
-    try {
-        // Input validation
-        if (!title || !description || !latitude || !longitude) {
-            return res.status(400).json({
-                success: false,
-                error: "All fields are required",
-            });
-        }
-
-        // Validate coordinates
-        const lat = parseFloat(latitude);
-        const lng = parseFloat(longitude);
-
-        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-            return res.status(400).json({
-                success: false,
-                error: "Invalid coordinates",
-            });
-        }
-
-        const nearestOffice = await findNearestOffice(prisma, lat, lng);
-
-        if (!nearestOffice) {
-            return res.status(400).json({
-                success: false,
-                error: "No nearest office found",
-            });
-        }
-
-        // Create the issue using raw query with geometry cast to text
-        const [issue] = await prisma.$queryRaw`
-    WITH new_issue AS (
-        INSERT INTO "Issue" (
-            "id",
-            "title",
-            "description",
-            "latitude",
-            "longitude",
-            "officeId",
-            "userId",
-            "location",
-            "status",
-            "dispute",
-            "isAnonymous",
-            "createdAt",
-            "address"
-        ) VALUES (
-            gen_random_uuid(),
-            ${title},
-            ${description},
-            ${latitude.toString()},
-            ${longitude.toString()},
-            ${nearestOffice.id},
-            ${userId},
-            ST_AsText(ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)),
-            'UNDER_REVIEW',
-            false,
-            ${anonymous},
-            NOW(),
-            ${address}
-
+    
+        const { title, description, latitude, longitude, isAnonymous, address } = req.body;
+        const image = req.files.image;
+        const audio = req.files.audio;
+        const userId = req.userId;
+        const anonymous = isAnonymous == "true" ? true : false;
+    
+        try {
+            // Input validation
+            if (!title || !description || !latitude || !longitude) {
+                return res.status(400).json({
+                    success: false,
+                    error: "All fields are required",
+                });
+            }
+    
+            if (image) {
+                if (!image.mimetype.startsWith("image/")) {
+                    return res.status(400).json({
+                        success: false,
+                        error: "Image must be an image",
+                    });
+                }
+            }
+    
+            if (audio) {
+                if (!audio.mimetype.startsWith("audio/")) {
+                    return res.status(400).json({
+                        success: false,
+                        error: "Audio must be an audio",
+                    });
+                }
+            }
+    
+            if (image) {
+                if (image.size > 1024 * 1024 * 10) {
+                    return res.status(400).json({
+                        success: false,
+                        error: "Image size should be less than 10MB",
+                    });
+                }
+            }
+    
+            if (audio) {
+                if (audio.size > 1024 * 1024 * 10) {
+                    return res.status(400).json({
+                        success: false,
+                        error: "Audio size should be less than 10MB",
+                    });
+                }
+            }
+    
+            const imageUrl = await uploadOnCloudinary(image.tempFilePath, "issues");
+            const audioUrl = await uploadOnCloudinary(audio, "issues");
+    
+            // Validate coordinates
+            const lat = parseFloat(latitude);
+            const lng = parseFloat(longitude);
+    
+            if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Invalid coordinates",
+                });
+            }
+    
+            const nearestOffice = await findNearestOffice(prisma, lat, lng);
+    
+            if (!nearestOffice) {
+                return res.status(400).json({
+                    success: false,
+                    error: "No nearest office found",
+                });
+            }
+    
+            // Create the issue using raw query with geometry cast to text
+            const [issue] = await prisma.$queryRaw`
+        WITH new_issue AS (
+            INSERT INTO "Issue" (
+                "id",
+                "title",
+                "description",
+                "latitude",
+                "longitude",
+                "officeId",
+                "userId",
+                "location",
+                "status",
+                "dispute",
+                "isAnonymous",
+                "createdAt",
+                "address",
+                "audio",
+                "image"
+            ) VALUES (
+                gen_random_uuid(),
+                ${title},
+                ${description},
+                ${latitude.toString()},
+                ${longitude.toString()},
+                ${nearestOffice.id},
+                ${userId},
+                ST_AsText(ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)),
+                'UNDER_REVIEW',
+                false,
+                ${anonymous},
+                NOW(),
+                ${address},
+                ${audioUrl},
+                ${imageUrl}
+    
+            )
+            RETURNING 
+                "id",
+                "title",
+                "description",
+                "latitude",
+                "longitude",
+                "officeId",
+                "userId",
+                "location",
+                "status",
+                "dispute",
+                "isAnonymous",
+                "createdAt",
+                "address",
+                "audio",
+                "image"
         )
-        RETURNING 
-            "id",
-            "title",
-            "description",
-            "latitude",
-            "longitude",
-            "officeId",
-            "userId",
-            "location",
-            "status",
-            "dispute",
-            "isAnonymous",
-            "createdAt",
-            "address"
-    )
-    SELECT * FROM new_issue;
-`;
-
-        // Fetch the created issue with relationships
-        const createdIssue = await prisma.issue.findUnique({
-            where: { id: issue.id },
-            include: {
-                office: true,
-                user: true,
-            },
-        });
-
-        res.status(201).json({
-            success: true,
-            issue: createdIssue,
-        });
-    } catch (error) {
-        console.error("Error in createIssue:", error);
-        res.status(500).json({
-            success: false,
-            error: "Internal server error",
-            details: process.env.NODE_ENV === "development" ? error.message : undefined,
-        });
-    }
-};
+        SELECT * FROM new_issue;
+    `;
+    
+            // Fetch the created issue with relationships
+            const createdIssue = await prisma.issue.findUnique({
+                where: { id: issue.id },
+                include: {
+                    office: true,
+                    user: true,
+                },
+            });
+    
+            res.status(201).json({
+                success: true,
+                issue: createdIssue,
+            });
+        } catch (error) {
+            console.error("Error in createIssue:", error);
+            res.status(500).json({
+                success: false,
+                error: "Internal server error",
+                details: process.env.NODE_ENV === "development" ? error.message : undefined,
+            });
+        }
+    };
 
 // Function to get nearby issues within 500m radius
 export const getNearbyIssues = async (req, res) => {
@@ -1332,16 +1378,39 @@ export const monthlyReport = async (req, res) => {
     try {
         // Get current date and calculate date ranges
         const now = new Date();
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const fromDate = new Date(req.query.fromDate);
+        const toDate = new Date(req.query.toDate);
+        if(!fromDate || !toDate) {
+            
+            fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            toDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        }
+
+        const userId = req.userId;
+        const user = await prisma.authority.findUnique({
+            where: { id: userId },
+            include: {
+                office: true,
+            },
+        });
+        console.log(user);
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User not found" });
+        }
+        if(user.role !== 'Representative authority'){
+            return res.status(401).json({ success: false, error: "You are not authorized to access this resource" });
+        }
 
         // Fetch weekly issues
         const weeklyIssues = await prisma.issue.findMany({
             where: {
                 createdAt: {
-                    gte: weekAgo,
-                    lte: now,
+                    gte: fromDate,
+                    lte: toDate,
                 },
+                office: {
+                    id: user.officeId,
+                }
             },
             include: {
                 department: true,
@@ -1362,9 +1431,12 @@ export const monthlyReport = async (req, res) => {
         const monthlyIssues = await prisma.issue.findMany({
             where: {
                 createdAt: {
-                    gte: monthAgo,
-                    lte: now,
+                    gte: fromDate,
+                    lte: toDate,
                 },
+                office: {
+                    id: user.officeId,
+                }
             },
             include: {
                 department: true,
