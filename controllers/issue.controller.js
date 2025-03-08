@@ -15,6 +15,9 @@ const departments = [
     "engineering",
 ];
 
+
+import uploadOnCloudinary from "../utils/cloudinary.js";
+
 async function sendNotification(phone, body) {
     const connection = await amqp.connect(process.env.RABBITMQ_URL);
     const channel = await connection.createChannel();
@@ -30,6 +33,7 @@ async function sendNotification(phone, body) {
     channel.publish("notification-exchange", "notification-routing-key", Buffer.from(JSON.stringify(notification)));
 
 }
+
 
 // Function to find the nearest office
 const findNearestOffice = async (prisma, latitude, longitude) => {
@@ -52,6 +56,7 @@ const findNearestOffice = async (prisma, latitude, longitude) => {
 
 // Create Issue controller
 export const createIssue = async (req, res) => {
+
     
         const { title, description, latitude, longitude, isAnonymous, address } = req.body;
         const image = req.files.image;
@@ -184,28 +189,30 @@ export const createIssue = async (req, res) => {
         SELECT * FROM new_issue;
     `;
     
-            // Fetch the created issue with relationships
-            const createdIssue = await prisma.issue.findUnique({
-                where: { id: issue.id },
-                include: {
-                    office: true,
-                    user: true,
-                },
-            });
-    
-            res.status(201).json({
-                success: true,
-                issue: createdIssue,
-            });
-        } catch (error) {
-            console.error("Error in createIssue:", error);
-            res.status(500).json({
-                success: false,
-                error: "Internal server error",
-                details: process.env.NODE_ENV === "development" ? error.message : undefined,
-            });
-        }
-    };
+            
+        // Fetch the created issue with relationships
+        const createdIssue = await prisma.issue.findUnique({
+            where: { id: issue.id },
+            include: {
+                office: true,
+                user: true,
+            },
+        });
+
+        res.status(201).json({
+            success: true,
+            issue: createdIssue,
+        });
+    } catch (error) {
+        console.error("Error in createIssue:", error);
+        res.status(500).json({
+            success: false,
+            error: "Internal server error",
+            details: process.env.NODE_ENV === "development" ? error.message : undefined,
+        });
+    }
+};
+
 
 // Function to get nearby issues within 500m radius
 export const getNearbyIssues = async (req, res) => {
